@@ -107,7 +107,7 @@ mod 'file_concat', :ref => '813132b5d77',         :git => github + 'electrical/p
 #
 # profile::webserver::apache
 #
-mod 'puppetlabs/apache', '1.7.1'                 # forge
+mod 'puppetlabs/apache', '1.10.0'                 # forge
 
 #
 # profile::database::postgresql
@@ -158,7 +158,7 @@ mod 'ceph', :ref => '998e023d8f',                :git => github + 'openstack/pup
 mod 'stdlib', :ref => '4.12.0',                  :git => github + 'puppetlabs/puppetlabs-stdlib'
 mod 'concat', :ref => '1.1.2',                   :git => github + 'puppetlabs/puppetlabs-concat'
 mod 'hash_file', :ref => '1.0.2',                :git => github + 'fiddyspence/puppet-hash_file'
-mod 'inifile', :ref => '1.2.0',                  :git => github + 'puppetlabs/puppetlabs-inifile'
+mod 'inifile', :ref => '1.5.0',                  :git => github + 'puppetlabs/puppetlabs-inifile'
 mod 'augeasproviders', :ref => 'v2.1.3',         :git => github + 'hercules-team/augeasproviders'
 mod 'augeasproviders_apache', :ref => '2.0.0',   :git => github + 'hercules-team/augeasproviders_apache'
 mod 'augeasproviders_core', :ref => '2.1.1',     :git => github + 'hercules-team/augeasproviders_core'
