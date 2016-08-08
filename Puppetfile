@@ -131,7 +131,7 @@ mod 'rabbitmq', :ref => '8527f20',                 :git => github + 'puppetlabs/
 # profile::openstack::*
 #
 mod 'keystone', :ref => '71f7964c6a',            :git => github + 'TorLdre/puppet-keystone'
-mod 'glance', :ref => 'f4495d93a0',              :git => github + 'openstack/puppet-glance'
+mod 'glance', :ref => '8.2.0',                   :git => github + 'openstack/puppet-glance'
 mod 'nova', :ref => 'a495b4010d',                :git => github + 'openstack/puppet-nova'
 mod 'cinder', :ref => '8.2.0',                   :git => github + 'openstack/puppet-cinder'
 mod 'horizon', :ref => '7.0.0-2-ga6e7c64',       :git => github + 'norcams/puppet-horizon'
