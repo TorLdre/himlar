@@ -8,7 +8,7 @@ include:
     - profile::logging::rsyslog::client
 
 profile::base::common::packages:
-  'python-oslo-policy': {}
+  'python2-oslo-policy': {}
 
 profile::openstack::volume::type:
   rbd:
