@@ -1,7 +1,7 @@
 ---
 # Shared config (nodes: command, compute)
 nova::db::database_connection:     "mysql://nova:%{hiera('nova::db::mysql::password')}@%{hiera('service__address__mysql')}/nova"
-nova::db::api_database_connection: "mysql://nova:%{hiera('nova::db::mysql_api::password')}@%{hiera('service__address__mysql')}/nova_api"
+nova::db::api_database_connection: "mysql://nova_api:%{hiera('nova::db::mysql_api::password')}@%{hiera('service__address__mysql')}/nova_api"
 nova::glance_api_servers:          "%{hiera('service__address__glance_api')}:9292"
 nova::cinder_catalog_info:         'volumev2:cinderv2:internalURL'
 nova::os_region_name:              "%{location}"
