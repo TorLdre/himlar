@@ -57,6 +57,7 @@ profile::base::common::packages:
   'bash-completion-extras': {}
   'jq': {}
   'openstack-selinux': {}
+  'python-etcd3gw': {}
 
 # Sensu (needs gcc-c++)
 profile::monitoring::sensu::agent::plugins:
