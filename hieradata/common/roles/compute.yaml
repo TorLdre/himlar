@@ -17,7 +17,9 @@ include:
     - profile::base::lvm
     - profile::network::yum_proxy
 
-# Set SELinux mode to enforcing
+# FIXME move to common
+openstack_version: 'pike'
+
 profile::base::selinux::manage_selinux: true
 
 # Manage default availability zone
