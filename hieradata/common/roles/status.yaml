@@ -9,13 +9,22 @@ profile::base::common::packages:
   'jq': {}
 
 # Selinux
-profile::base::selinux::manage_selinux:         false
+profile::base::selinux::manage_selinux:         true
 
 # Grafana
 profile::monitoring::grafana::enable:           true
 profile::monitoring::grafana::manage_firewall:  true
 profile::monitoring::grafana::firewall_extras:
   source: "%{::network_trp1}/%{::netmask_trp1}"
+
+grafana_openstack_user: 'status'
+grafana_openstack_password: "%{hiera('status_metric_password')}"
+
+grafana::plugins:
+  gnocchixyz-gnocchi-datasource:
+    ensure: present
+  ryantxu-ajax-panel:
+    ensure: present
 
 grafana::cfg:
   app_mode: 'production'
