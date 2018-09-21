@@ -7,6 +7,7 @@ include:
     - profile::openstack::network
     - profile::logging::rsyslog::client
     - profile::openstack::openrc
+    - profile::application::rngd
   kickstart:
     - profile::base::lvm
     - profile::virtualization::nested
@@ -22,9 +23,14 @@ profile::openstack::compute::manage_az:            true
 profile::base::network::manage_httpproxy: true
 profile::network::yum_proxy::yum_proxy:   "http://%{hiera('mgmt__address__proxy')}:8888"
 
+# enable rng daemon for better entropy
+profile::application::rngd::enable:       true
+
 # Source proxy for internet access during puppetrun
+#puppet::cron_cmd: "if [ -e /root/proxy.sh ] ; then source /root/proxy.sh ; fi ; \
+#  /usr/bin/env puppet agent --config %{puppet::dir}/puppet.conf --onetime --no-daemonize"
 puppet::cron_cmd: "if [ -e /root/proxy.sh ] ; then source /root/proxy.sh ; fi ; \
-  /usr/bin/env puppet agent --config %{puppet::dir}/puppet.conf --onetime --no-daemonize"
+  /opt/puppetlabs/bin/puppet agent --config /etc/puppetlabs/puppet/puppet.conf --onetime --no-daemonize"
 
 profile::openstack::compute::migration::enable_nova_account: true
 # Set .ssh dir for nova to 0755 to enable sensu checks
@@ -44,19 +50,22 @@ profile::openstack::openrc::project_name: 'services'
 
 profile::openstack::network::plugin: calico
 
+profile::openstack::network::calico::manage_etcd_grpc_proxy: true
+profile::openstack::network::calico::manage_etcd:            true
+
 profile::base::common::packages:
   'networking-calico': {}
-  'python-openstackclient': {}
   'gcc-c++': {}
   'bash-completion': {}
   'bash-completion-extras': {}
   'jq': {}
+  'openstack-selinux': {}
 
 # Sensu (needs gcc-c++)
 profile::monitoring::sensu::agent::plugins:
   sensu-plugins-http:
     type:         package
-    pkg_version:  '1.0.0'
+    pkg_version:  '2.8.4'
 
 profile::monitoring::sensu::agent::plugin_gems:
   sensu-plugins-himlar:
@@ -64,10 +73,17 @@ profile::monitoring::sensu::agent::plugin_gems:
     provider: 'sensu_gem'
     source:   'http://download.iaas.uio.no/uh-iaas/gem'
 
-# metadata api check
+# sensu
+sensu__memory__warn:     '95'
+sensu__memory__critical: '99'
+
 profile::monitoring::sensu::agent::checks:
   'metadata-api':
     command:      "check-http.rb -u http://127.0.0.1:8775"
+    interval:     60
+    subscribers:  ['checks']
+  'etcd-client-health':
+    command:      "check-http.rb -u http://127.0.0.1:2379/health -q 'true' --response-code 405"
     interval:     60
     subscribers:  ['checks']
   'nova-ssh-key':
@@ -92,6 +108,8 @@ sudo::configs:
 
 profile::openstack::compute::hypervisor::fix_snapshot_loc: true # FIXME - Should probably be removed for newton release
 
+profile::openstack::telemetry::polling::polling_interval:  3600 # FIXME
+
 calico::compute: true
 etcd::mode: 'proxy'
 
@@ -107,6 +125,8 @@ named_interfaces::config:
     - team1
   service: #FIXME
     - team1
+  live:
+    - team1.120
 
 sudo::purge: false
 
@@ -128,16 +148,22 @@ profile::base::lvm::logical_volume:
 profile::base::yumrepo::repo_hash:
   rdo-release:
     ensure: present
-  calico22:
+#    exclude: 'openstack-neutron openstack-neutron-common python-neutron'
+  calico31:
     ensure: present
-    exclude: 'calico-dhcp-agent' #FIXME
+    exclude: 'calico-dhcp-agent dnsmasq' #FIXME
   ceph-%{hiera('ceph_version')}:
     ensure: present
+  centos-qemu-ev:
+    ensure: present
+  epel: # should be absent when using RDO, but whitelist can also work
+    ensure:   present
+    includepkgs: 'bird bird6 htop bash-completion-extras lttng-ust userspace-rcu libbabeltrace leveldb liboath py-bcrypt'
 
 # Compute nodes need only admin and cinder keys
 ceph::profile::params::client_keys:
   'client.admin':
-    secret: "%{hiera('client.admin::secret')}"
+    secret: "%{hiera('client_admin::secret')}"
     mode: '0600'
     user: 'ceph'
     group: 'ceph'
@@ -145,9 +171,9 @@ ceph::profile::params::client_keys:
     cap_osd: 'allow *'
     cap_mds: 'allow *'
   'client.cinder':
-    secret: "%{hiera('client.cinder::secret')}"
+    secret: "%{hiera('client_cinder::secret')}"
     mode: '0600'
     user: 'nova'
     group: 'nova'
-    cap_mon: 'allow r'
-    cap_osd: 'allow class-read object_prefix rbd_children, allow rwx pool=volumes, allow rwx pool=vms, allow rwx pool=images'
+    cap_mon: 'profile rbd'
+    cap_osd: 'profile rbd pool=volumes, profile rbd pool=vms, profile rbd pool=images'

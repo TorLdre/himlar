@@ -16,6 +16,8 @@ mgmt_interface=eth0
 #mgmt_interface=$(hiera foreman_proxy::dhcp_interface role=foreman location=$foreman_location)
 mgmt_network=$(facter network_${mgmt_interface})
 mgmt_netmask=$(facter netmask_${mgmt_interface})
+#repo=$(sed -n 's/^baseurl=//p' CentOS-Base.repo | head -1 | rev | cut -d/ -f3- | rev)
+repo=$(sed -n 's/^baseurl=//p' /etc/yum.repos.d/CentOS-Base.repo | head -1)
 
 #
 # Location specific configs
@@ -56,7 +58,7 @@ common_config()
 
   # Create and update domain
   /bin/hammer domain create --name $foreman_domain || true
-  /bin/hammer domain update --name $foreman_domain --dns-id ''
+  /bin/hammer domain update --name $foreman_domain
   foreman_domain_id=$(/bin/hammer --csv domain info --name $foreman_domain | tail -n1 | cut -d, -f1)
 
   # Find smart proxy ID to use for tftp
@@ -83,8 +85,11 @@ common_config()
   # Provisioning and discovery setup
   #
 
-  # Enable puppetlabs repo
-  /bin/hammer global-parameter set --name enable-puppetlabs-repo --value true
+  # Enable puppetlabs repo for puppet 4 and disable for puppet 3
+  /bin/hammer global-parameter set --name enable-puppetlabs-repo --value false
+  /bin/hammer global-parameter set --name enable-puppetlabs-pc1-repo --value true
+  /bin/hammer global-parameter set --name run-puppet-in-installer --value true
+
   # Enable clokcsync in Kickstart
   /bin/hammer global-parameter set --name time-zone --value 'Europe/Oslo'
   /bin/hammer global-parameter set --name ntp-server --value 'no.pool.ntp.org'
@@ -92,11 +97,10 @@ common_config()
   # Create ftp.uninett.no medium
   /bin/hammer medium create --name 'CentOS download.iaas.uio.no' \
     --os-family Redhat \
-    --path 'https://download.iaas.uio.no/uh-iaas/prod/centos-base' || true
+    --path $repo || true
   # Save CentOS mirror ids
   medium_id_1=$(/bin/hammer --csv medium info --name 'CentOS mirror' | tail -n1 | cut -d, -f1)
   medium_id_2=$(/bin/hammer --csv medium info --name 'CentOS download.iaas.uio.no' | tail -n1 | cut -d, -f1)
-  freebsd_medium_id_1=$(/bin/hammer --csv medium info --name 'FreeBSD mirror' | tail -n1 | cut -d, -f1)
 
   # Sync our custom provision templates
   /sbin/foreman-rake templates:sync \
@@ -105,47 +109,24 @@ common_config()
   norcams_provision_id=$(/bin/hammer --csv template list --per-page 1000 | grep 'norcams Kickstart default' | cut -d, -f1)
   norcams_pxelinux_id=$(/bin/hammer --csv template list --per-page 1000 | grep 'norcams PXELinux default' | cut -d, -f1)
   norcams_ptable_id=$(/bin/hammer --csv partition-table list --per-page 1000 | grep 'norcams ptable default' | cut -d, -f1)
-  freebsd_provision_id=$(/bin/hammer --csv template list --per-page 1000 | grep 'Community FreeBSD' | grep 'provision' | cut -d, -f1)
-  freebsd_pxelinux_id=$(/bin/hammer --csv template list --per-page 1000 | grep 'Community FreeBSD' | grep 'PXELinux' | cut -d, -f1)
-  freebsd_finish_id=$(/bin/hammer --csv template list --per-page 1000 | grep 'Community FreeBSD' | grep 'finish' | cut -d, -f1)
-  freebsd_ptable_id=$(/bin/hammer --csv partition-table list --per-page 1000 | grep 'FreeBSD,Freebsd' | cut -d, -f1)
 
   # Associate partition template with Redhat family of OSes
   /bin/hammer partition-table update --id $norcams_ptable_id --os-family Redhat
-  /bin/hammer partition-table update --id $freebsd_ptable_id --os-family Freebsd
 
   # Create and update OS
-  /bin/hammer os create --name CentOS --major 7 || true
-  centos_os=$(/bin/hammer --csv os list --per-page 1000 | grep 'CentOS 7.3' | cut -d, -f1)
-  /bin/hammer os update --id $centos_os --name CentOS --major 7 \
-    --description "CentOS 7.3" \
-    --family Redhat \
-    --architecture-ids 1 \
-    --medium-ids ${medium_id_2},${medium_id_1} \
-    --partition-table-ids $norcams_ptable_id
-  # Set default Kickstart and PXELinux templates and associate with os
-  /bin/hammer template update --id $norcams_provision_id --operatingsystem-ids $centos_os
-  /bin/hammer template update --id $norcams_pxelinux_id --operatingsystem-ids $centos_os
-  /bin/hammer os set-default-template --id $centos_os --config-template-id $norcams_provision_id
-  /bin/hammer os set-default-template --id $centos_os --config-template-id $norcams_pxelinux_id
-
-  # Add FreeBSD and new arch
-  /bin/hammer architecture create --name amd64 || true
-  freebsd_arch=$(/bin/hammer --csv architecture list | grep 'amd64' | cut -d, -f1)
-  /bin/hammer os create --name FreeBSD --major 11 --minor 0 || true
-  freebsd_os=$(/bin/hammer --csv os list --per-page 1000 | grep 'FreeBSD 11' | cut -d, -f1)
-  /bin/hammer os update --id $freebsd_os --name FreeBSD --major 11 \
-    --description "FreeBSD 11.0" \
-    --family Freebsd \
-    --architecture-ids $freebsd_arch \
-    --medium-ids ${freebsd_medium_id_1} \
-    --partition-table-ids $freebsd_ptable_id
-  /bin/hammer template update --id $freebsd_provision_id --operatingsystem-ids $freebsd_os
-  /bin/hammer template update --id $freebsd_pxelinux_id --operatingsystem-ids $freebsd_os
-  /bin/hammer template update --id $freebsd_finish_id --operatingsystem-ids $freebsd_os
-  /bin/hammer os set-default-template --id $freebsd_os --config-template-id $freebsd_provision_id
-  /bin/hammer os set-default-template --id $freebsd_os --config-template-id $freebsd_pxelinux_id
-  /bin/hammer os set-default-template --id $freebsd_os --config-template-id $freebsd_finish_id
+  /bin/hammer --csv os list --per-page 1000 | grep 'CentOS 7' || /bin/hammer os create --name CentOS --major 7 --minor 5 || true
+  for centos_os in $(/bin/hammer --csv os list --per-page 1000 | grep 'CentOS 7.5' | cut -d, -f1); do
+    /bin/hammer os update --id $centos_os --name CentOS --major 7\
+      --family Redhat \
+      --architecture-ids 1 \
+      --medium-ids ${medium_id_2} \
+      --partition-table-ids $norcams_ptable_id
+    # Set default Kickstart and PXELinux templates and associate with os
+    /bin/hammer template update --id $norcams_provision_id --operatingsystem-ids $centos_os
+    /bin/hammer template update --id $norcams_pxelinux_id --operatingsystem-ids $centos_os
+    /bin/hammer os set-default-template --id $centos_os --config-template-id $norcams_provision_id
+    /bin/hammer os set-default-template --id $centos_os --config-template-id $norcams_pxelinux_id
+  done
 
   # Create Puppet environment
   /bin/hammer environment create --name production || true
@@ -167,25 +148,12 @@ common_config()
   /bin/hammer hostgroup create --name storage --parent base || true
   /bin/hammer hostgroup set-parameter --hostgroup storage \
      --name installdevice \
-     --value sdm
+     --value sdl
   # Create compute hostgroup to set special paramters
   /bin/hammer hostgroup create --name compute --parent base || true
   /bin/hammer hostgroup set-parameter --hostgroup compute \
      --name installdevice \
      --value sda
-  # Create a hostgroup for FreeBSD nodes
-  /bin/hammer hostgroup create --name freebsd-nat --parent base || true
-  /bin/hammer hostgroup update --name freebsd-nat \
-    --architecture amd64 \
-    --domain-id $foreman_domain_id \
-    --operatingsystem-id $freebsd_os \
-    --medium-id $freebsd_medium_id_1 \
-    --partition-table-id $freebsd_ptable_id \
-    --subnet-id $foreman_subnet_id \
-    --puppet-proxy-id $foreman_proxy_id \
-    --puppet-ca-proxy-id $foreman_proxy_id \
-    --environment production
-
   #
   # Foreman global settings
   #

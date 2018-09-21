@@ -43,10 +43,12 @@ nodesets:
     - role:       "volume"
     - role:       "dashboard"
     - role:       "compute"
-      memory:     2048
+      memory:     4096
       cpus:       2
   # The following nodes are optional
     #- role:       "access"
+    #- role:       "identity"
+    #  hostid:      "02"
     #- role:       "console"
     #- role:       "monitor"
     #- role:       "status"
@@ -54,14 +56,25 @@ nodesets:
     #- role:       "proxy"
     #- role:       "login"
     #- role:       "controller"
+    #- role:       "metric"
+    #- role:       "telemetry"
+    #- role:       "dashboard-mgmt"
     #- role:       "logger"
     #  cpus:       1
     #  memory:     2048
+    #- role:       "object"
+    #  hostid:     '01'
+    #- role:       "object"
+    #  hostid:     '02'
+    #- role:       "object"
+    #  hostid:     '03'
     #- role:       "nat"
     #  box:        "norcams/freebsd"
     #- role:       "admin"
     #  memory:     3096
-    #
+    # To use leaf see cumulus help below
+    #- role:       "leaf"
+    #  box:        "norcams/net"
   ha:
     - role:       'ha'
       hostid:     '01'
@@ -82,11 +95,24 @@ nodesets:
     - role:       "storage"
   dns:
     - role:       "db"
-    - role:       "admin"
+    - role:       "mq"
+    - role:       "api"
     - role:       "ns"
+    - role:       "resolver"
       hostid:     "01"
-    - role:       "ns"
+    - role:       "resolver"
       hostid:     "02"
+    - role:       "dashboard"
+    - role:       "admin"
+    - role:       "dns"
+    - role:       "identity"
+    - role:       "novactrl"
+    - role:       "image"
+    - role:       "volume"
+    - role:       "network"
+    - role:       "compute"
+      memory:     4096
+      cpus:       2
 
 networks:
   mgmt:
@@ -101,3 +127,9 @@ networks:
     net: "192.168.0"
     auto_config: false
     forwarding: "route"
+
+#
+# To use cumulus in vagrant:
+#
+# Install gcc-c++
+# Then run: vagrant plugin install vagrant-cumulus

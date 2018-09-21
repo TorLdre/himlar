@@ -11,58 +11,83 @@ domain_public:            'bgo.uh-iaas.no'
 domain_trp:               'bgo.uhdc.no'
 domain_mgmt:              'mgmt.bgo.uhdc.no'
 
+reverse_mgmt:             '0.16.172.in-addr.arpa'
+
 bgp_as:                   '65501'
 
 netcfg_mgmt_gateway:      '172.16.0.12'
 netcfg_mgmt_netpart:      '172.16.0'
 netcfg_mgmt_netmask:      '255.255.248.0'
 netcfg_trp_gateway:       '172.18.7.1'
-netcfg_trp_gateway6:      'fd00::1'
+netcfg_trp_gateway6:      'fd00::701'
 netcfg_trp_netpart:       '172.18.0'
 netcfg_trp_netpart6:      'fd00'
 netcfg_trp_netmask:       '255.255.248.0'
 netcfg_trp_netmask6:      '64'
+netcfg_ceph_netpart:      '172.20.0'
+netcfg_ceph_netmask:      '255.255.248.0'
+netcfg_live_netpart:      '172.22.0'
+netcfg_live_netmask:      '255.255.248.0'
 #netcfg_dns_server1:       '129.177.6.54'
-netcfg_dns_server1:       '172.16.0.12'
-netcfg_dns_server2:       '129.177.12.31'
+netcfg_dns_server1:       '172.16.0.10'
+netcfg_dns_server2:       '172.16.0.17'
 netcfg_dns_search:        "%{hiera('domain_mgmt')} %{hiera('domain_trp')}"
 netcfg_priv_gateway:      '172.18.0.26'
 netcfg_priv_network:      '10.1.0.0/20'
 netcfg_pub_natgw:         '158.39.77.248'
+netcfg_pub_natgw2:        '158.39.74.248'
+netcfg_anycast_dns:       '158.39.77.252'
+netcfg_anycast_dns6:      '2001:700:2:83ff::252'
 netcfg_trp_rr:
   rr1:
     peer_ipv4: '172.18.0.1'
+    peer_ipv6: 'fd00::1'
   rr2:
     peer_ipv4: '172.18.0.2'
+    peer_ipv6: 'fd00::2'
+
+# DNS servers
+public__address__ns:           '158.39.77.251'
+public6__address__ns:          '2001:700:2:83ff::251'
+public__address__resolver_01:  '158.39.77.252'
+public6__address__resolver_01: '2001:700:2:83ff::252'
+
+public__ip__proxy:              '158.39.77.253'
 
 #
 # DNS (merge of common and this)
 #
 profile::network::services::dns_records:
   A:
-    # mgmt
-    "%{::location}-leaf-02.%{hiera('domain_mgmt')}":    "%{hiera('netcfg_mgmt_netpart')}.2"
-    "%{::location}-leaf-03.%{hiera('domain_mgmt')}":    "%{hiera('netcfg_mgmt_netpart')}.3"
-    "%{::location}-leaf-04.%{hiera('domain_mgmt')}":    "%{hiera('netcfg_mgmt_netpart')}.4"
-    "%{::location}-mgmt-01.%{hiera('domain_mgmt')}":    "%{hiera('netcfg_mgmt_netpart')}.5"
-    "%{::location}-login-01.%{hiera('domain_mgmt')}":   "%{hiera('netcfg_mgmt_netpart')}.10"
-    "git.%{hiera('domain_mgmt')}":                      "%{hiera('netcfg_mgmt_netpart')}.10"
-    # Used as CNAME for uh-iaas.no (http://iaas.readthedocs.io/en/latest/team/operations/dns.html)
-    'uh-api.iaas.uib.no':                               '158.39.77.250'
-    'uh-api-front.iaas.uib.no':                         '158.39.77.250'
-    'uh-console.iaas.uib.no':                           '158.39.77.251'
-    'uh-status-front.iaas.uib.no':                      '158.39.77.250'
-    'uh-status.iaas.uib.no':                            '158.39.77.250'
-    'uh-access-front.iaas.uib.no':                      '158.39.77.252'
-    'uh-access.iaas.uib.no':                            '158.39.77.252'
-    'uh-dboard-front.iaas.uib.no':                      '158.39.77.254'
-    'uh-dboard.iaas.uib.no':                            '158.39.77.254'
+    # Public records (<foo>.<location>.uh-iaas.no)
+    "console.%{hiera('domain_public')}":         '158.39.77.250'
+    "compute.api.%{hiera('domain_public')}":     '158.39.77.250'
+    "identity.api.%{hiera('domain_public')}":    '158.39.77.250'
+    "network.api.%{hiera('domain_public')}":     '158.39.77.250'
+    "image.api.%{hiera('domain_public')}":       '158.39.77.250'
+    "volume.api.%{hiera('domain_public')}":      '158.39.77.250'
+    "placement.api.%{hiera('domain_public')}":   '158.39.77.250'
+    "metric.api.%{hiera('domain_public')}":      '158.39.77.250'
+    "resolver.%{hiera('domain_public')}":        '158.39.77.252'
+
+    # Management network (entries that differ from common/common.yaml)
+    "%{::location}-mgmt-01.%{hiera('domain_mgmt')}":  "%{hiera('netcfg_mgmt_netpart')}.5"
+    "%{::location}-login-01.%{hiera('domain_mgmt')}": "%{hiera('netcfg_mgmt_netpart')}.10"
+  AAAA:
+    # Public records (<foo>.<location>.uh-iaas.no)
+    "resolver.%{hiera('domain_public')}":        '2001:700:2:83ff::252'
   PTR:
-    '1.0.16.172.in-addr.arpa':                          "%{::location}-leaf-01.%{hiera('domain_mgmt')}"
-    '2.0.16.172.in-addr.arpa':                          "%{::location}-leaf-02.%{hiera('domain_mgmt')}"
-    '3.0.16.172.in-addr.arpa':                          "%{::location}-leaf-03.%{hiera('domain_mgmt')}"
-    '4.0.16.172.in-addr.arpa':                          "%{::location}-leaf-04.%{hiera('domain_mgmt')}"
-    '5.0.16.172.in-addr.arpa':                          "%{::location}-mgmt-01.%{hiera('domain_mgmt')}"
+    # Management network (entries that differ from common/common.yaml)
+    "5.%{hiera('reverse_mgmt')}":      "%{::location}-mgmt-01.%{hiera('domain_mgmt')}"
+    "10.%{hiera('reverse_mgmt')}":     "%{::location}-login-01.%{hiera('domain_mgmt')}"
+    # public IPv4 # FIXME do not work
+    # '250.77.39.158':  'uh-api.iaas.uib.no'
+    # '251.77.39.158':  "ns2.%{hiera('domain_frontend')}"
+    # '252.77.39.158':  "resolver.%{hiera('domain_public')}"
+    # '254.77.39.158':  'uh-dboard.iaas.uib.no'
+    # public IPv6
+    '1.5.2.0.0.0.0.0.0.0.0.0.0.0.0.0.f.f.3.8.0.0.7.0.2.0.0.0.1.0.0.2.ip6.arpa':  "ns2.%{hiera('domain_frontend')}"
+    '2.5.2.0.0.0.0.0.0.0.0.0.0.0.0.0.f.f.3.8.0.0.7.0.2.0.0.0.1.0.0.2.ip6.arpa':  "resolver.%{hiera('domain_public')}"
 
 ntp::servers:
   - ntp.uib.no
@@ -74,7 +99,6 @@ ceph::profile::params::cluster_network:             '172.20.0.0/21'
 ceph::profile::params::public_network:              '172.18.0.0/21'
 
 profile::openstack::volume::manage_rbd: true
-profile::openstack::volume::api::enable_multibackend: true
 profile::openstack::compute::hypervisor::manage_libvirt_rbd: true
 
 # If backend != file, you must explicitly define stores in %location/modules/glance.yaml
@@ -93,6 +117,12 @@ profile::network::services::dhcp_reservation:
   bgo-leaf-04:
     mac: '00:01:e8:d8:37:24'
     ip:  '172.16.0.4'
+  bgo-torack-01:
+    mac: '14:18:77:00:78:00'
+    ip:  '172.16.0.6'
+  bgo-torack-02:
+    mac: '14:18:77:01:22:00'
+    ip:  '172.16.0.7'
   bgo-mgmt-02:
     mac: '34:17:eb:32:45:80'
     ip:  '172.16.0.5'
@@ -101,18 +131,23 @@ profile::network::services::dns_options:
   CNAME:
     default:
       ttl: 3600
-      keyfile: "/etc/rndc-%{location}.key"
-      server: 'alfalfa.uib.no'
+      keyfile: "/etc/rndc-admin.key"
+      server: "%{hiera('netcfg_mgmt_netpart')}.16"
   A:
     default:
       ttl: 3600
-      keyfile: "/etc/rndc-%{location}.key"
-      server: 'alfalfa.uib.no'
+      keyfile: "/etc/rndc-admin.key"
+      server: "%{hiera('netcfg_mgmt_netpart')}.16"
+  AAAA:
+    default:
+      ttl: 3600
+      keyfile: "/etc/rndc-admin.key"
+      server: "%{hiera('netcfg_mgmt_netpart')}.16"
   PTR:
     default:
       ttl: 3600
-      keyfile: "/etc/rndc-%{location}.key"
-      server: 'alfalfa.uib.no'
+      keyfile: "/etc/rndc-admin.key"
+      server: "%{hiera('netcfg_mgmt_netpart')}.16"
 
 profile::openstack::resource::networks:
   dualStack:
@@ -124,7 +159,7 @@ profile::openstack::resource::networks:
   IPv6:
     name: 'IPv6'
     admin_state_up: true
-    shared: false
+    shared: true
     tenant_name: 'openstack'
     provider_network_type: 'local'
   imagebuilder:
@@ -143,8 +178,7 @@ profile::openstack::resource::subnets:
       - 'start=158.39.77.2,end=158.39.77.245'
     gateway_ip: '158.39.77.1'
     dns_nameservers:
-      - '129.177.6.54'
-      - '129.177.12.31'
+      - "%{hiera('netcfg_anycast_dns')}"
     network_name: 'dualStack'
     tenant_name: 'openstack'
   public2_IPv4:
@@ -155,8 +189,7 @@ profile::openstack::resource::subnets:
       - 'start=158.39.74.2,end=158.39.74.245'
     gateway_ip: '158.39.74.1'
     dns_nameservers:
-      - '129.177.6.54'
-      - '129.177.12.31'
+      - "%{hiera('netcfg_anycast_dns')}"
     network_name: 'dualStack'
     tenant_name: 'openstack'
   public3_IPv4:
@@ -164,11 +197,10 @@ profile::openstack::resource::subnets:
     cidr: '158.39.77.0/24'
     ip_version: '4'
     allocation_pools:
-      - 'start=158.39.77.246,end=158.39.77.247'
+      - 'start=158.39.77.246,end=158.39.77.246'
     gateway_ip: '158.39.77.1'
     dns_nameservers:
-      - '129.177.6.54'
-      - '129.177.12.31'
+      - "%{hiera('netcfg_anycast_dns')}"
     network_name: 'imagebuilder'
     tenant_name: 'imagebuilder'
   public1_ipv6:
@@ -179,8 +211,7 @@ profile::openstack::resource::subnets:
       - 'start=2001:700:2:8301::1000,end=2001:700:2:8301::4fff'
     gateway_ip: '2001:700:2:8301::1'
     dns_nameservers:
-      - '2001:4860:4860::8888'
-      - '2001:4860:4860::8844'
+      - "%{hiera('netcfg_anycast_dns6')}"
     network_name: 'IPv6'
     tenant_name: 'openstack'
   public2_ipv6:
@@ -191,8 +222,7 @@ profile::openstack::resource::subnets:
       - 'start=2001:700:2:8300::2000,end=2001:700:2:8300::2fff'
     gateway_ip: '2001:700:2:8300::1'
     dns_nameservers:
-      - '2001:4860:4860::8888'
-      - '2001:4860:4860::8844'
+      - "%{hiera('netcfg_anycast_dns6')}"
     network_name: 'dualStack'
     tenant_name: 'openstack'
   private1_IPv4:
@@ -203,7 +233,6 @@ profile::openstack::resource::subnets:
       - 'start=10.1.0.10,end=10.1.3.254'
     gateway_ip: '10.1.0.1'
     dns_nameservers:
-      - '129.177.6.54'
-      - '129.177.12.31'
+      - "%{hiera('netcfg_anycast_dns')}"
     network_name: 'IPv6'
     tenant_name: 'openstack'

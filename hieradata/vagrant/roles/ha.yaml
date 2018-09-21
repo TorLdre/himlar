@@ -34,6 +34,10 @@
 #   mariadb:
 #     ensure: present
 
+#netdata
+profile::monitoring::netdata::firewall_extras:
+  source:       '0.0.0.0/0'
+
 # corosync
 corosync::unicast_addresses:
   - "%{hiera('netcfg_public_netpart')}.16"
@@ -69,11 +73,13 @@ profile::firewall::rules::custom_rules:
 # HAproxy
 haproxy::global_options:
   log:          '127.0.0.1 local6 info alert'
+  maxconn:      '10000' # total connections per core
 
 haproxy::defaults_options:
   log:          'global'
   stats:        []
   option:       ['dontlognull', 'httplog', 'http-server-close', 'redispatch']
+  maxconn:      '2000' # default per frontend
   timeout:
     - 'connect 10s'
     - 'http-keep-alive 10s'
@@ -86,19 +92,21 @@ haproxy::defaults_options:
 # Allow ports in selinux|
 profile::base::selinux::ports:
   sfb-https:
-    context:  'http_port_t'
+    seltype:  'http_port_t'
     protocol: 'tcp'
-    port:     '4443'
+    port:     4443
   ldaps:
-    context:  'http_port_t'
+    seltype:  'http_port_t'
     protocol: 'tcp'
-    port:     '636'
-    argument: '-m'
+    port:     636
   ldap:
-    context:  'http_port_t'
+    seltype:  'http_port_t'
     protocol: 'tcp'
-    port:     '389'
-    argument: '-m'
+    port:     389
+
+profile::highavailability::loadbalancing::haproxy::access_list:
+  uib_vpn_net:
+    ips: [192.168.0.0/24]
 
 #
 # Example with mapping, frontend and backend
@@ -111,6 +119,7 @@ profile::highavailability::loadbalancing::haproxy::haproxy_mapfile:
       - "%{hiera('public__address__access')}":      'uib-https-uh-access'
       - "%{hiera('public__address__dashboard')}":   'uib-https-uh-dashboard'
       - 'exch.uib.no':                              'uib-https-exch'
+      - 'portal.uib.no':                              'uib-https-adm'
   'public_domains':
     ensure: present
     mappings:
@@ -168,6 +177,11 @@ profile::highavailability::loadbalancing::haproxy::haproxy_backends:
       - balance:      'roundrobin'
       - option:
         - 'httpchk /healthcheck.html'
+  uib-https-adm:
+    mode:             'tcp'
+    options:
+      - balance:      'roundrobin'
+      - tcp-request:  'content reject if { src -f /etc/haproxy/uib_vpn_net.list }'
   uib-https-exch:
     mode:             'tcp'
     options:
@@ -232,6 +246,13 @@ profile::highavailability::loadbalancing::haproxy::haproxy_balancermembers:
     ipaddresses:        ['129.177.14.178','129.177.14.179']
     options:
       - 'check'
+  'uib-https-adm':
+    listening_service:  'uib-https-adm'
+    ports:              443
+    server_names:       ['rd-web01.uib.no', 'rd-web02.uib.no']
+    ipaddresses:        ['129.177.14.13', '129.177.14.182']
+    options:
+      - 'check'
 
 # Frontend: backends are found from mapping file
 profile::highavailability::loadbalancing::haproxy::haproxy_frontends:
@@ -261,6 +282,7 @@ profile::highavailability::loadbalancing::haproxy::haproxy_frontends:
       "%{hiera('corosync_cluster_vip3')}:80": []
       "%{hiera('corosync_cluster_vip4')}:80": []
     options:
+      - maxconn:        '10000'
       - option:         'httplog'
       - use_backend:    '%[req.hdr(host),lower,map(/etc/haproxy/uib_domains.map)]'
       - capture:        'request header Host len 32' #for debug
@@ -270,6 +292,7 @@ profile::highavailability::loadbalancing::haproxy::haproxy_frontends:
       "%{hiera('corosync_cluster_vip3')}:443": []
       "%{hiera('corosync_cluster_vip4')}:443": []
     options:
+      - maxconn:        '10000'
       - option:         'tcplog'
       - tcp-request:
         - 'inspect-delay 5s'

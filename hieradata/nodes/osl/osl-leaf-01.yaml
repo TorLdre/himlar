@@ -21,21 +21,23 @@ profile::base::network::cumulus_interfaces:
     'virtual_mac': '00:00:5e:00:01:01'
   'peerlink.4094':
     'ipv4': [ '172.18.228.1/24', ]
+    'ipv6': [ 'fd32:18:228::1/64', ]
     'clagd_enable': true
     'clagd_priority': '4096'
     'clagd_peer_ip': '172.18.228.2'
     'clagd_sys_mac': '44:38:39:ff:bb:1c'
 # downlink interface
-#  'swp48':
-#    'ipv4': ['129.240.25.110/30']
+  'swp48':
+    'ipv4': '129.240.25.110/30'
+    'ipv6': '2001:700:100:aa3::22/126'
 
 profile::base::network::cumulus_bridges:
   'bridge':
-    'ports': [ 'host1', 'host2', 'host3', 'host4', 'host5', 'host6', 'host7', 'host8', 'host9', 'host10', 'peerlink', 'downlink' ]
+    'ports': [ 'host1', 'host2', 'host3', 'host4', 'host5', 'host6', 'host7', 'host8', 'host9', 'host10', 'host11', 'host12', 'host13', 'peerlink', 'downlink' ]
     'alias_name': 'Transport L2 if'
     'vlan_aware': 'true'
     'stp': 'true'
-    'vids': [ '100', '4094', ]
+    'vids': [ '100', '120', '4094', ]
 
 profile::base::network::cumulus_bonds:
   'peerlink':
@@ -104,6 +106,24 @@ profile::base::network::cumulus_bonds:
     'pvid': '100'
     'mstpctl_portadminedge': true
     'mstpctl_bpduguard': true
+  'host11':
+    'slaves': [ 'swp11', ]
+    'clag_id': '11'
+    'pvid': '100'
+    'mstpctl_portadminedge': true
+    'mstpctl_bpduguard': true
+  'host12':
+    'slaves': [ 'swp12', ]
+    'clag_id': '12'
+    'pvid': '100'
+    'mstpctl_portadminedge': true
+    'mstpctl_bpduguard': true
+  'host13':
+    'slaves': [ 'swp13', ]
+    'clag_id': '13'
+    'pvid': '100'
+    'mstpctl_portadminedge': true
+    'mstpctl_bpduguard': true
 
 quagga::quagga::zebra_interfaces:
   'bridge':
@@ -132,17 +152,28 @@ quagga::quagga::zebra_interfaces:
     - 'link-detect'
   'host10':
     - 'link-detect'
+  'host11':
+    - 'link-detect'
+  'host12':
+    - 'link-detect'
+  'host13':
+    - 'link-detect'
 
 quagga::quagga::zebra_ip6_routes:
-  - '::/0 fd32::2'
+  - '::/0 2001:700:100:aa3::21'
+  - '2001:700:2:8200::/64 Null0'
+  - '2001:700:2:8201::/64 Null0'
+  - '2001:700:2:82ff::12/128 fd32::12'
+  - '2001:700:2:82ff::251/128 fd32::16'
 quagga::quagga::zebra_ip_routes:
-  - '0.0.0.0/0 172.18.228.2'
+  - '0.0.0.0/0 129.240.25.109'
   - '10.0.0.0/8 Null0'
   - '158.37.63.0/24 Null0'
+  - '158.37.63.248/32 172.18.32.26'
+  - '158.37.63.247/32 172.18.32.27'
   - '158.37.63.249/32 172.18.32.41'
   - '158.37.63.250/32 172.18.32.86'
-  - '158.37.63.251/32 172.18.32.61'
-  - '158.37.63.252/32 172.18.32.56'
+  - '158.37.63.251/32 172.18.32.16'
   - '158.37.63.253/32 172.18.32.12'
   - '158.37.63.254/32 172.18.32.51'
   - '158.39.75.0/24 Null0'
@@ -160,9 +191,11 @@ quagga::quagga::bgp_neighbors:
 quagga::quagga::bgp_as: "%{hiera('bgp_as')}"
 
 quagga::quagga::bgp_options:
-  - 'router-id 172.18.32.1'
-  - 'log-neighbor-changes'
-  - 'default local-preference 200'
+  - "bgp router-id %{hiera('netcfg_trp_netpart')}.1"
+  - 'bgp log-neighbor-changes'
+  - 'bgp default local-preference 200'
+  - 'maximum-paths ibgp 3'
+  - 'bgp bestpath as-path multipath-relax'
 
 quagga::quagga::bgp_networks:
   - '0.0.0.0/0'
@@ -181,6 +214,8 @@ quagga::quagga::bgp_neighbor_groups:
       - 'route-map rr-client-allow in'
       - 'bfd'
     'members':
+      - '172.18.32.17'
+      - '172.18.32.18'
       - '172.18.32.26'
       - '172.18.32.103'
       - '172.18.32.104'
@@ -188,15 +223,22 @@ quagga::quagga::bgp_neighbor_groups:
       - '172.18.32.111'
       - '172.18.32.112'
       - '172.18.32.113'
+      - '172.18.32.115'
+      - '172.18.32.116'
     'options6':
-      - 'route-reflector-client'
+      - 'neighbor rr-clients route-reflector-client'
+      - 'maximum-paths ibgp 3'
     'members6':
+      - 'fd32::17'
+      - 'fd32::18'
       - 'fd32::103'
       - 'fd32::104'
       - 'fd32::105'
       - 'fd32::111'
       - 'fd32::112'
       - 'fd32::113'
+      - 'fd32::115'
+      - 'fd32::116'
 
 quagga::quagga::bgp_accesslist:
   '10':

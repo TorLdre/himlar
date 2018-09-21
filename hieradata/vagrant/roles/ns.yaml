@@ -1,33 +1,39 @@
 ---
-include:
-  default:
-    - profile::dns::ns
-    - profile::dns::rndc_key
-    - profile::logging::rsyslog::client
-
-profile::dns::rndc_key::create_admin_key:    true
-profile::dns::rndc_key::create_mdns_key:     true
-profile::dns::rndc_key::host_is_bind_server: true
-
+# Public and internal zones
 profile::dns::ns::internal_zone: "vagrant.iaas.intern"
+profile::dns::ns::public_zone:   "vagrant.iaas.intern"
 
 # Name servers in zone file
-profile::dns::ns::name_servers:
-  - "ns.%{hiera('profile::dns::ns::internal_zone')}"
+profile::dns::ns::ns_master: "ns.%{hiera('profile::dns::ns::public_zone')}"
 
-# Forward zones
+# Forward zones, for which the name server is authoritative
 profile::dns::ns::fw_zones:
   internal:
-    zone: "%{hiera('profile::dns::ns::internal_zone')}"
-    filename: "%{hiera('profile::dns::ns::internal_zone')}.zone"
+    zone:     "%{hiera('profile::dns::ns::public_zone')}"
+    filename: "pz/%{hiera('profile::dns::ns::public_zone')}"
+    ns_a_records:
+      'ns': "%{hiera('public__address__ns')}"
+    ns_aaaa_records:
+      'ns': "%{hiera('public6__address__ns')}"
+    delegations:
+      'customer':
+        - "ns.%{hiera('profile::dns::ns::public_zone')}"
 
-# Reverse zones
+# Reverse zones, for which the name server is authoritative
 profile::dns::ns::ptr_zones:
-  internal:
-    cidr: "172.31.0.0/16"
-    origin: "31.172"
-    filename: "reverse-172.31"
+  mgmt:
+    cidr:     "172.31.0.0/24"
+    origin:   "0.31.172.in-addr.arpa"
+    filename: "pz/0.31.172.in-addr.arpa"
+  transport:
+    cidr:     "172.31.8.0/24"
+    origin:   "8.31.172.in-addr.arpa"
+    filename: "pz/8.31.172.in-addr.arpa"
   public:
-    cidr: "192.168.0/16"
-    origin: "168.192"
-    filename: "reverse-192.168"
+    cidr:     "192.168.0.0/24"
+    origin:   "0.168.192.in-addr.arpa"
+    filename: "pz/0.168.192.in-addr.arpa"
+  ipv6:
+    cidr:     "fc00::/7"
+    origin:   "c.f.ip6.arpa"
+    filename: "pz/c.f.ip6.arpa"

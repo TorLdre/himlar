@@ -1,5 +1,4 @@
 ---
-profile::dns::ns::master: true
 profile::dns::ns::my_mgmt_addr:      "%{hiera('netcfg_mgmt_netpart')}.16"
 profile::dns::ns::my_transport_addr: "%{hiera('netcfg_trp_netpart')}.16"
 
@@ -12,6 +11,7 @@ network::interfaces_hash:
     gateway:   "%{hiera('netcfg_mgmt_gateway')}"
     peerdns:   'yes'
     dns1:      "%{hiera('netcfg_dns_server1')}"
+    dns2:      "%{hiera('netcfg_dns_server2')}"
     domain:    "%{hiera('netcfg_dns_search')}"
     defroute:  'no'
   'eth1':
@@ -20,9 +20,22 @@ network::interfaces_hash:
     ipaddress: "%{hiera('netcfg_trp_netpart')}.16"
     netmask:   "%{hiera('netcfg_trp_netmask')}"
     gateway:   "%{hiera('netcfg_trp_gateway')}"
-    srcaddr:   "%{hiera('netcfg_public_netpart')}.16"
+    srcaddr:   "%{hiera('netcfg_public_netpart')}.251"
+    ipv6init:  'yes'
+    ipv6addr:  "%{hiera('netcfg_trp_netpart6')}::16/%{hiera('netcfg_trp_netmask6')}"
     defroute:  'yes'
   'dummy0':
-    ipaddress: "%{hiera('netcfg_public_netpart')}.16"
+    ipaddress: "%{hiera('netcfg_public_netpart')}.251"
     netmask:   '255.255.255.255'
+    ipv6init:  'yes'
+    ipv6addr:  "%{hiera('netcfg_public_netpart6')}::251/128"
     defroute:  'no'
+
+profile::base::network::routes:
+  'eth1':
+    'ipaddress': [ '::', ]
+    'netmask':   [ '0', ]
+    'gateway':   [ 'fd32::1', ]
+    'source':    [ "%{hiera('netcfg_public_netpart6')}::251", ]
+    'table':     [ 'main', ]
+    'family':    [ 'inet6', ]

@@ -18,6 +18,9 @@ network::interfaces_hash:
     ipaddress:    '129.240.121.146'
     netmask:      '255.255.255.0'
     gateway:      '129.240.121.1'
+    ipv6init:     'yes'
+    ipv6addr:     '2001:700:100:121::146/64'
+    ipv6_defaultgw: '2001:700:100:121::1'
     defroute:     'yes'
     dns1:         "%{hiera('mgmt__address__proxy')}"
     domain:       'test.iaas.uio.no'
@@ -44,19 +47,24 @@ network::interfaces_hash:
     type:         'Bridge'
     ipaddress:    '192.168.122.1'
     netmask:      '255.255.255.0'
+    ipv6init:     'yes'
+    ipv6addr:     'fd30::1/64'
     defroute:     'no'
     bridge_stp:   'off'
 
 # NAT
-profile::network::nat::enable_snat: true
-profile::network::nat::source:      "%{hiera('netcfg_public_netpart')}.0/%{hiera('netcfg_public_netmask')}"
-profile::network::nat::outiface:    'em4'
+profile::network::nat::enable_snat:  true
+profile::network::nat::source:       "%{hiera('netcfg_public_netpart')}.0/%{hiera('netcfg_public_netmask')}"
+profile::network::nat::enable_snat6: true
+profile::network::nat::source6:      "%{hiera('netcfg_public_netpart6')}::/%{hiera('netcfg_public_netmask6')}"
+profile::network::nat::outiface:     'em4'
 
-# On this host sdd is the OS disk
+profile::network::services::ntp_server: false
+
 lvm::volume_groups:
   vg_ext:
     physical_volumes:
-      - /dev/sdd3
+      - /dev/sdb3
     logical_volumes:
       lv_ext:
         fs_type:   xfs
@@ -64,10 +72,13 @@ lvm::volume_groups:
 
 # route to public net via leaf-01
 # (test02 is a special case since leaf runs inside this node)
-network::mroutes_hash:
-  br2:
-    routes:
-      10.100.200.0/24:  192.168.122.2
+profile::base::network::routes:
+  'br2':
+    'ipaddress': [ 'fd34::', '10.100.200.0', ]
+    'netmask':   [ '0', '255.255.255.0', ]
+    'gateway':   [ 'fd30::2', '192.168.122.2', ]
+    'table':     [ 'main', 'main', ]
+    'family':    [ 'inet6', 'inet4', ]
 
 named_interfaces::config:
   mgmt:
@@ -117,3 +128,6 @@ ssh::server::options:
 # SSH from everywhere
 profile::firewall::pre::ssh_settings:
   source: "0.0.0.0/0"
+
+# SSH from ipv6
+profile::firewall::pre::manage_ipv6_ssh: true

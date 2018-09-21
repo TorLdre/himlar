@@ -32,6 +32,9 @@ sensu::subscriptions:
   - 'metrics'
   - 'checks'
 
+sensu__memory__warn:     '80'
+sensu__memory__critical: '90'
+
 sensu::checks:
   'metrics-vmstat':
     type:         'metric'
@@ -52,16 +55,20 @@ sensu::checks:
     subscribers:  ['metrics']
     handlers:     ['graphite_tcp']
   'check-disk-usage':
-    command:      "check-disk-usage.rb -p '/osd/' -w 70 -c 90"
+    command:      "check-disk-usage.rb -p '/ceph/' -w 70 -c 90"
     interval:     60
     subscribers:  ['checks']
   'check-load':
-    command:      'check-load.rb -p -w 3,2,1'
+    command:      'check-load.rb -w 3,2,1'
     interval:     60
     subscribers:  ['checks']
   'check-memory-precent':
-    command:      'check-memory-percent.rb -w 70 -c 90'
+    command:      "check-memory-percent.rb -w %{hiera('sensu__memory__warn')} -c %{hiera('sensu__memory__critical')}"
     interval:     60
+    subscribers:  ['checks']
+  'check-process':
+    command:      'check-process.rb -p cron'
+    interval:     300
     subscribers:  ['checks']
 
 # Server
@@ -69,4 +76,4 @@ sensu::api_user:          'sensu'
 sensu::api_password:      "%{hiera('sensu_api_password')}"
 sensu::api_host:          "%{ipaddress_mgmt1}"
 sensu::api_bind:          "%{ipaddress_mgmt1}"
-sensu::api_port:          '4567'
+sensu::api_port:          4567

@@ -1,8 +1,11 @@
 ---
 include:
+  bootstrap:
+    - profile::development::network::dns
   default:
     - profile::development::network::dns
     - profile::monitoring::sensu::agent
+    - profile::application::openssl::catrust
 
 # Location setting
 location_environment: vagrant
@@ -13,14 +16,21 @@ domain_public:          'vagrant.iaas.intern'
 domain_trp:             'trp.vagrant.iaas.intern'
 domain_mgmt:            'mgmt.vagrant.iaas.intern'
 
+reverse_public:         '0.168.192.in-addr.arpa'
+reverse_public6:        '0.0.2.0.0.0.1.0.0.0.7.0.0.0.c.f.ip6.arpa'
+reverse_mgmt:           '0.31.172.in-addr.arpa'
+
 netcfg_mgmt_gateway:    '172.31.0.1'
 netcfg_mgmt_netpart:    '172.31.0'
 netcfg_mgmt_netmask:    '255.255.255.0'
 netcfg_trp_gateway:     '172.31.8.1'
 netcfg_trp_netpart:     '172.31.8'
 netcfg_trp_netmask:     '255.255.255.0'
+netcfg_live_netpart:    '172.31.8'
+netcfg_live_netmask:    '255.255.255.0'
 netcfg_public_netpart:  '192.168.0'
 netcfg_public_netmask:  '255.255.255.0'
+netcfg_public_netpart6: 'fc00:700:100:200'
 netcfg_dns_server1:     '172.31.0.1'
 netcfg_dns_server2:     '8.8.8.8'
 netcfg_dns_search:      "%{hiera('domain_mgmt')} %{hiera('domain_trp')}"
@@ -31,10 +41,16 @@ netcfg_trp_rr:
   rr1:
     peer_ipv4: '172.31.8.1'
 
-#
-# Services (internal non openstack services)
-#
-service__address__mysql:  "db01.%{hiera('domain_trp')}" #FIXME
+profile::openstack::volume::api::enable_testbackend:     'true'
+
+# DNS servers
+public__address__ns:           "%{hiera('netcfg_public_netpart')}.251"
+public6__address__ns:          "%{hiera('netcfg_public_netpart6')}::251"
+public__address__resolver_01:  "%{hiera('netcfg_public_netpart')}.252"
+public6__address__resolver_01: "%{hiera('netcfg_public_netpart6')}::252"
+
+# In vagrant this is the host, otherwise it should be the NAT server used
+public__ip__proxy:             "%{hiera('netcfg_public_netpart')}.1"
 
 #
 # Default interfaces
@@ -46,9 +62,7 @@ named_interfaces::config:
     - eth1
   trp:
     - eth2
-  service: #FIXME (delete)
-    - eth2
-  transport: #FIXME (delete)
+  live:
     - eth2
   public:
     - eth3
@@ -87,6 +101,11 @@ profile::network::services::dns_options:
       ttl: 3600
       keyfile: "/etc/rndc-admin.key"
       server: "%{hiera('netcfg_mgmt_netpart')}.16"
+  AAAA:
+    default:
+      ttl: 3600
+      keyfile: "/etc/rndc-admin.key"
+      server: "%{hiera('netcfg_mgmt_netpart')}.16"
   PTR:
     default:
       ttl: 3600
@@ -98,68 +117,35 @@ profile::network::services::dns_options:
 #
 profile::network::services::dns_records:
   A:
-    "ns.%{hiera('domain_public')}":                       "%{hiera('netcfg_public_netpart')}.16"
-    "dashboard.%{hiera('domain_frontend')}":              "%{hiera('netcfg_public_netpart')}.254"
-    "access.%{hiera('domain_frontend')}":                 "%{hiera('netcfg_public_netpart')}.252"
-    "console.%{hiera('domain_public')}":                  "%{hiera('netcfg_public_netpart')}.251"
+    "access.%{hiera('domain_frontend')}":                 "%{hiera('netcfg_public_netpart')}.250"
+    "console.%{hiera('domain_public')}":                  "%{hiera('netcfg_public_netpart')}.250"
     "api.%{hiera('domain_public')}":                      "%{hiera('netcfg_public_netpart')}.250"
     "identity.api.%{hiera('domain_public')}":             "%{hiera('netcfg_public_netpart')}.250"
     "image.api.%{hiera('domain_public')}":                "%{hiera('netcfg_public_netpart')}.250"
     "network.api.%{hiera('domain_public')}":              "%{hiera('netcfg_public_netpart')}.250"
     "compute.api.%{hiera('domain_public')}":              "%{hiera('netcfg_public_netpart')}.250"
+    "placement.api.%{hiera('domain_public')}":            "%{hiera('netcfg_public_netpart')}.250"
     "volume.api.%{hiera('domain_public')}":               "%{hiera('netcfg_public_netpart')}.250"
     "status.%{hiera('domain_frontend')}":                 "%{hiera('netcfg_public_netpart')}.250"
+    "metric.api.%{hiera('domain_public')}":               "%{hiera('netcfg_public_netpart')}.250"
+    "object.api.%{hiera('domain_public')}":               "%{hiera('netcfg_public_netpart')}.250"
+    "dns.api.%{hiera('domain_public')}":                  "%{hiera('netcfg_public_netpart')}.250"
+    "report.%{hiera('domain_frontend')}":                 "%{hiera('netcfg_public_netpart')}.250"
+    "ns.%{hiera('domain_public')}":                       "%{hiera('netcfg_public_netpart')}.251"
+    "resolver.%{hiera('domain_public')}":                 "%{hiera('netcfg_public_netpart')}.252"
+    "dashboard.%{hiera('domain_frontend')}":              "%{hiera('netcfg_public_netpart')}.254"
+  AAAA:
+    "ns.%{hiera('domain_public')}":                       "%{hiera('netcfg_public_netpart6')}::251"
+    "resolver.%{hiera('domain_public')}":                 "%{hiera('netcfg_public_netpart6')}::252"
   PTR:
-    '1.0.31.172.in-addr.arpa':      "%{::location}-leaf-01.%{hiera('domain_mgmt')}"
-    '11.0.31.172.in-addr.arpa':     "%{::location}-admin-01.%{hiera('domain_mgmt')}"
-    '12.0.31.172.in-addr.arpa':     "%{::location}-proxy-01.%{hiera('domain_mgmt')}"
-    '13.0.31.172.in-addr.arpa':     "%{::location}-logger-01.%{hiera('domain_mgmt')}"
-    '14.0.31.172.in-addr.arpa':     "%{::location}-monitor-01.%{hiera('domain_mgmt')}"
-    '15.0.31.172.in-addr.arpa':     "%{::location}-builder-01.%{hiera('domain_mgmt')}"
-    '16.0.31.172.in-addr.arpa':     "%{::location}-ns-01.%{hiera('domain_mgmt')}"
-    '17.0.31.172.in-addr.arpa':     "%{::location}-ns-02.%{hiera('domain_mgmt')}"
-    '21.0.31.172.in-addr.arpa':     "%{::location}-status-01.%{hiera('domain_mgmt')}"
-    '26.0.31.172.in-addr.arpa':     "%{::location}-nat-01.%{hiera('domain_mgmt')}"
-    '31.0.31.172.in-addr.arpa':     "%{::location}-mq-01.%{hiera('domain_mgmt')}"
-    '36.0.31.172.in-addr.arpa':     "%{::location}-image-01.%{hiera('domain_mgmt')}"
-    '41.0.31.172.in-addr.arpa':     "%{::location}-db-01.%{hiera('domain_mgmt')}"
-    '42.0.31.172.in-addr.arpa':     "%{::location}-db-02.%{hiera('domain_mgmt')}"
-    '46.0.31.172.in-addr.arpa':     "%{::location}-volume-01.%{hiera('domain_mgmt')}"
-    '51.0.31.172.in-addr.arpa':     "%{::location}-dashboard-01.%{hiera('domain_mgmt')}"
-    '56.0.31.172.in-addr.arpa':     "%{::location}-access-01.%{hiera('domain_mgmt')}"
-    '61.0.31.172.in-addr.arpa':     "%{::location}-console-01.%{hiera('domain_mgmt')}"
-    '66.0.31.172.in-addr.arpa':     "%{::location}-novactrl-01.%{hiera('domain_mgmt')}"
-    '71.0.31.172.in-addr.arpa':     "%{::location}-network-01.%{hiera('domain_mgmt')}"
-    '72.0.31.172.in-addr.arpa':     "%{::location}-network-02.%{hiera('domain_mgmt')}"
-    '73.0.31.172.in-addr.arpa':     "%{::location}-network-03.%{hiera('domain_mgmt')}"
-    '81.0.31.172.in-addr.arpa':     "%{::location}-identity-01.%{hiera('domain_mgmt')}"
-    '86.0.31.172.in-addr.arpa':     "%{::location}-api-01.%{hiera('domain_mgmt')}"
-    '91.0.31.172.in-addr.arpa':     "%{::location}-cephmon-01.%{hiera('domain_mgmt')}"
-    '92.0.31.172.in-addr.arpa':     "%{::location}-cephmon-02.%{hiera('domain_mgmt')}"
-    '93.0.31.172.in-addr.arpa':     "%{::location}-cephmon-03.%{hiera('domain_mgmt')}"
-    '100.0.31.172.in-addr.arpa':    "%{::location}-controller-01.%{hiera('domain_mgmt')}"
-    '101.0.31.172.in-addr.arpa':    "%{::location}-controller-02.%{hiera('domain_mgmt')}"
-    '102.0.31.172.in-addr.arpa':    "%{::location}-controller-03.%{hiera('domain_mgmt')}"
-    '103.0.31.172.in-addr.arpa':    "%{::location}-compute-01.%{hiera('domain_mgmt')}"
-    '104.0.31.172.in-addr.arpa':    "%{::location}-compute-02.%{hiera('domain_mgmt')}"
-    '105.0.31.172.in-addr.arpa':    "%{::location}-compute-03.%{hiera('domain_mgmt')}"
-    '106.0.31.172.in-addr.arpa':    "%{::location}-storage-01.%{hiera('domain_mgmt')}"
-    '107.0.31.172.in-addr.arpa':    "%{::location}-storage-02.%{hiera('domain_mgmt')}"
-    '108.0.31.172.in-addr.arpa':    "%{::location}-storage-03.%{hiera('domain_mgmt')}"
-    '109.0.31.172.in-addr.arpa':    "%{::location}-storage-04.%{hiera('domain_mgmt')}"
-    '110.0.31.172.in-addr.arpa':    "%{::location}-storage-05.%{hiera('domain_mgmt')}"
-    '111.0.31.172.in-addr.arpa':    "%{::location}-compute-04.%{hiera('domain_mgmt')}"
-    '112.0.31.172.in-addr.arpa':    "%{::location}-compute-05.%{hiera('domain_mgmt')}"
-    '113.0.31.172.in-addr.arpa':    "%{::location}-compute-06.%{hiera('domain_mgmt')}"
-    '114.0.31.172.in-addr.arpa':    "%{::location}-controller-04.%{hiera('domain_mgmt')}"
-    '115.0.31.172.in-addr.arpa':    "%{::location}-compute-07.%{hiera('domain_mgmt')}"
-    '116.0.31.172.in-addr.arpa':    "%{::location}-compute-08.%{hiera('domain_mgmt')}"
-    '16.0.168.192.in-addr.arpa':    "ns.%{hiera('domain_public')}"
-    '254.0.168.192.in-addr.arpa':   "dashboard.%{hiera('domain_frontend')}"
-    '252.0.168.192.in-addr.arpa':   "access.%{hiera('domain_frontend')}"
-    '251.0.168.192.in-addr.arpa':   "console.%{hiera('domain_public')}"
-    '250.0.168.192.in-addr.arpa':   "api.%{hiera('domain_public')}"
-
+    # public IPv4
+    "250.%{hiera('reverse_public')}":   "api.%{hiera('domain_public')}"
+    "251.%{hiera('reverse_public')}":   "ns.%{hiera('domain_public')}"
+    "252.%{hiera('reverse_public')}":   "resolver.%{hiera('domain_public')}"
+    "254.%{hiera('reverse_public')}":   "dashboard.%{hiera('domain_frontend')}"
+    # public IPv6
+    "1.5.2.0.0.0.0.0.0.0.0.0.0.0.0.0.%{hiera('reverse_public6')}":  "ns.%{hiera('domain_public')}"
+    "2.5.2.0.0.0.0.0.0.0.0.0.0.0.0.0.%{hiera('reverse_public6')}":  "resolver.%{hiera('domain_public')}"
 
 #
 ## Secret data which for other environments are stored ooutside of this data tree
@@ -167,6 +153,14 @@ profile::network::services::dns_records:
 
 # ceph.yaml
 ceph::profile::params::mon_key:                     'AQATGHJTUCBqIBAA7M2yafV1xctn1pgr3GcKPg=='
+client_admin::secret:                               'AQBMGHJTkC8HKhAAJ7NH255wYypgm1oVuV41MA=='
+client_bootstrap-osd::secret:                       'AQARG3JTsDDEHhAAVinHPiqvJkUi5Mww/URupw=='
+client_bootstrap-mds::secret:                       'AQCztJdSyNb0NBAASA2yPZPuwXeIQnDJ9O8gVw=='
+client_glance::secret:                              'AQBGJ8dWKhgcNhAA+VU0GlKHcRLJSsJ8WouuSQ=='
+client_volumes::secret:                             'AQA4MPZTOGU0ARAAXH9a0fXxVq0X25n2yPREDw=='
+client_cinder::secret:                              'AQBypF1V2JYiChAA2qYbjM6jbXJBMmpXPkvwBg=='
+
+# FIXME: puppet 3 legacy params
 client.admin::secret:                               'AQBMGHJTkC8HKhAAJ7NH255wYypgm1oVuV41MA=='
 client.bootstrap-osd::secret:                       'AQARG3JTsDDEHhAAVinHPiqvJkUi5Mww/URupw=='
 client.bootstrap-mds::secret:                       'AQCztJdSyNb0NBAASA2yPZPuwXeIQnDJ9O8gVw=='
@@ -180,24 +174,32 @@ cinder_api_password:                                'cinder_pass'
 glance_api_password:                                'glance_pass'
 neutron_api_password:                               'neutron_pass'
 nova_api_password:                                  'nova_pass'
+nova_placement_password:                            'nova_pass'
+gnocchi_api_password:                               'gnocchi'
+ceilometer_api_password:                            'ceilometer_pass'
+access_api_password:                                'access_pass'
+designate_api_password:                             'designate_pass'
 
 # rabbitmq
 rabbitmq::default_pass:                             'guest'
 rabbitmq::erlang_cookie:                            'Himlardev667'
+access_rabbit_password:                             'access_pass'
+himlarcli_rabbit_password:                          'himlarcli'
 
 # cinder.yaml
 cinder::db::mysql::password:                        'cinder_pass'
-cinder::rabbit_password:                            'cinder_guest'
+cinder_rabbit_password:                             'cinder_guest'
 
 # foreman.yaml
 foreman::admin_password:                            'changeme'
 
 # glance.yaml
 glance::db::mysql::password:                        'glance_pass'
-#glance::notify::rabbitmq::rabbit_password:          'glance_quest'
+#glance::notify::rabbitmq::rabbit_password:         'glance_quest'
 
 # horizon.yaml
 horizon::secret_key:                                'horizon_secret'
+horizon_db_password:                                'horizon_pass'
 
 # keystone.yaml
 keystone::db::mysql::password:                      'key_pass'
@@ -210,15 +212,20 @@ rbd_volumes_rbd_secret_uuid:                        'AQBypF1V2JYiChAA2qYbjM6jbXJ
 mysql::server::root_password:                       'test123'
 
 # neutron.yaml
-neutron::rabbit_password:                           'neutron_guest'
+neutron_rabbit_password:                            'neutron_guest'
 neutron::db::mysql::password:                       'neutron_pass'
 neutron::agents::metadata::shared_secret:           'a_secret'
 
 # nova.yaml
 nova::db::mysql::password:                          'nova_pass'
 nova::db::mysql_api::password:                      'nova_api_pass'
+nova::db::mysql_placement::password:                'nova_placement_pass'
 nova::api::neutron_metadata_proxy_shared_secret:    'a_secret'
-nova::rabbit_password:                              'nova_quest'
+nova_rabbit_password:                              'nova_quest'
+
+# designate.yaml
+designate::db::mysql::password:                     'designate_pass'
+designate::rabbit_password:                         'guest'
 
 # imagebuilder
 imagebuilder_password:                              'imagebuilder_pass'
@@ -231,8 +238,24 @@ sensu_mysql_password:                               'sensu_pass'
 grafana_admin_password:                             'changeme'
 local_rabbit_password:                              'local'
 
+# telemetry/metrics
+gnocchi::db::mysql::password:                       'gnocchi_pass'
+ceilometer::db::mysql::password:                    'ceilometer_pass'
+ceilometer::telemetry_secret:                       'ceilometer'
+ceilometer_rabbit_password:                         'ceilometer'
+status_metric_password:                             'status_pass'
+monitor_metric_password:                            'monitor_pass'
+
+# object
+swift::swift_hash_path_suffix:                      'shared_secret'
+swift_api_password:                                 'swift_pass'
+dispersion_api_password:                            'dispersion_pass'
+
 # The root user password: himlardev
 accounts::root_user::password:                      '$1$vagrant$z3l/WWbF3HllJk0tnqO3i/'
+
+# report
+report_db_password:                                 'report_pass'
 
 # rndc keys
 profile::dns::rndc_key::rndc_secret_admin: '5n5fC0m42JovwO9PJMTQYaNP7j5UcRjmL0Lsq4JXz8eZIrGILt/5Lo+MVzdr31GbYn9C/fPEe1Nvbjs8NgTG6w=='

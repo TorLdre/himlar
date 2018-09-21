@@ -1,0 +1,2 @@
+---
+profile::openstack::telemetry::polling::polling_interval: 120

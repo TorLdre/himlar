@@ -2,19 +2,38 @@
 # Allow ports in selinux|
 profile::base::selinux::ports:
   sfb-https:
-    context:  'http_port_t'
+    seltype:  'http_port_t'
     protocol: 'tcp'
-    port:     '4443'
+    port:     4443
   ldaps:
-    context:  'http_port_t'
+    seltype:  'http_port_t'
     protocol: 'tcp'
-    port:     '636'
-    argument: '-m'
+    port:     636
   ldap:
-    context:  'http_port_t'
+    seltype:  'http_port_t'
     protocol: 'tcp'
-    port:     '389'
-    argument: '-m'
+    port:     389
+
+#
+# Default interfaces
+#
+named_interfaces::config:
+  mgmt:
+    - em1
+  public:
+    - bond0.6
+
+# Access lists
+profile::highavailability::loadbalancing::haproxy::access_list:
+  uib_vpn_net:
+    ips:
+      - 129.177.138.114/32 # uib-guest
+      - 129.177.44.0/24 # vpn-gw
+      - 129.177.46.0/24 # vpn-gw
+      - 129.177.32.0/24 # vpn-ansatt
+      - 129.177.33.0/24 # vpn-ansatt
+      - 129.177.48.0/24 # vpn-student
+      - 129.177.49.0/24 # vpn-student
 
 corosync::unicast_addresses:
   - "%{hiera('netcfg_public_netpart')}.96"
@@ -66,7 +85,7 @@ haproxy::global_options:
   log:          '127.0.0.1 local6 info alert'
   nbproc:       '2'
   cpu-map:      ['1 0', '2 2']
-  maxconn:      '10000' # per core
+  maxconn:      '20000' # per core
 haproxy::defaults_options:
   log:          'global'  #FIXME turn of debug logging in production
   stats:        []
@@ -95,6 +114,7 @@ profile::highavailability::loadbalancing::haproxy::haproxy_mapfile:
       - 'sfb-webpool01.uib.no':                   'uib-https-sfb'
       - 'lyncadmin.uib.no':                       'uib-https-sfb'
       - 'exch.uib.no':                            'uib-https-exch'
+      - 'portal.uib.no':                          'uib-https-adm'
       - "dashboard.uh-iaas.no":                   'uib-https-uh-dashboard'
       - "dashboard-ha.uh-iaas.no":                'uib-https-uh-dashboard'
       - "access.uh-iaas.no":                      'uib-https-uh-access'
@@ -112,6 +132,7 @@ profile::highavailability::loadbalancing::haproxy::haproxy_mapfile:
       - 'lyncdiscoverinternal.bergento.no':       'uib-http-sfb'
       - 'sfb-webpool01.uib.no':                   'uib-http-sfb'
       - 'lyncadmin.uib.no':                       'uib-http-sfb'
+      - 'portal.uib.no':                          'uib-http-adm'
   public_https_domains:
     ensure: present
     mappings:
@@ -210,6 +231,20 @@ profile::highavailability::loadbalancing::haproxy::haproxy_balancermembers:
     server_names:       ['bgo-status-01', 'osl-status-01']
     ipaddresses:        ['158.39.77.250', '158.37.63.250']
     options:            'check'
+  'uib-https-adm':
+    listening_service:  'uib-https-adm'
+    ports:              443
+    server_names:       ['rd-web01.uib.no', 'rd-web02.uib.no']
+    ipaddresses:        ['129.177.14.13', '129.177.14.182']
+    options:
+      - 'check'
+  'uib-http-adm':
+    listening_service:  'uib-http-adm'
+    ports:              80
+    server_names:       ['rd-web01.uib.no', 'rd-web02.uib.no']
+    ipaddresses:        ['129.177.14.13', '129.177.14.182']
+    options:
+      - 'check'
   'uib-ldap-test':
     listening_service:  'uib-ldap-test'
     ports:              '389'
@@ -267,6 +302,16 @@ profile::highavailability::loadbalancing::haproxy::haproxy_backends:
     mode:             'tcp'
     options:
       - balance:      'source'
+  uib-https-adm:
+    mode:             'tcp'
+    options:
+      - balance:      'roundrobin'
+      - tcp-request:  'content reject if { src -f /etc/haproxy/uib_vpn_net.list }'
+  uib-http-adm:
+    mode:             'tcp'
+    options:
+      - balance:      'roundrobin'
+      - tcp-request:  'content reject if { src -f /etc/haproxy/uib_vpn_net.list }'
   uib-ldap-test:
     mode:             'tcp'
     options:
@@ -346,6 +391,7 @@ profile::highavailability::loadbalancing::haproxy::haproxy_frontends:
       "%{hiera('corosync_cluster_vip3')}:80": []
       "%{hiera('corosync_cluster_vip4')}:80": []
     options:
+      - maxconn:        '16000' # max internal http connections
       - option:         'httplog'
       - use_backend:    '%[req.hdr(host),lower,map(/etc/haproxy/uib_http_domains.map)]'
       - capture:        'request header Host len 32' #for debug
@@ -355,6 +401,7 @@ profile::highavailability::loadbalancing::haproxy::haproxy_frontends:
       "%{hiera('corosync_cluster_vip3')}:443": []
       "%{hiera('corosync_cluster_vip4')}:443": []
     options:
+      - maxconn:        '16000' # max internal https connections
       - option:         'tcplog'
       - tcp-request:
         - 'inspect-delay 5s'

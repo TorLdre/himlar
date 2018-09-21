@@ -31,17 +31,14 @@ filter import_kernel {
 
 filter import_bgp {
   if  net != 0.0.0.0/0 then {
-    accept;
+    if net !=<%= scope().call_function('hiera',['netcfg_anycast_dns']) %>/32 then {
+      accept;
+    }
   }
   reject;
 }
 
 table private;
-
-#protocol static {
-#  route 0.0.0.0/0 via <%= scope.function_hiera(['netcfg_priv_gateway']) %>;
-#  table private;
-#}
 
 # Configure synchronization between BIRD's routing tables and the
 # kernel.
@@ -54,7 +51,7 @@ protocol kernel {
 #  import filter import_kernel;
   import all;
   graceful restart;
-  export all;     # Default is export none
+  export filter import_bgp;     # Default is export none
 }
 
 protocol pipe {
@@ -75,7 +72,7 @@ protocol kernel {
 }
 
 protocol bfd {
-<% scope.function_hiera(['netcfg_trp_rr']).each do |name| %><%if name[1]['peer_ipv4'] %>  neighbor <%= name[1]['peer_ipv4'] %>;
+<% scope().call_function('hiera',['netcfg_trp_rr']).each do |name| %><%if name[1]['peer_ipv4'] %>  neighbor <%= name[1]['peer_ipv4'] %>;
 <% end %><% end %>}
 
 # Watch interface up/down events.

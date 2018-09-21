@@ -2,12 +2,15 @@
 network::interfaces_hash:
   'eth0':
     onboot:    'yes'
+    bridge:    'br3'
+  'eth1':
+    onboot:    'yes'
     bridge:    'br0'
-  'eth0.912':
+  'eth1.912':
     onboot:    'yes'
     bridge:    'br1'
     vlan:      "yes"
-  'eth0.913':
+  'eth1.913':
     onboot:    'yes'
     bridge:    'br2'
     vlan:      "yes"
@@ -18,17 +21,22 @@ network::interfaces_hash:
     defroute:  'yes'
     peerdns:   'yes'
     onboot:    'yes'
-    ipaddress: "%{hiera('netcfg_netpart_mgmt')}.100"
-    netmask:   "%{hiera('netcfg_netmask_mgmt')}"
-    gateway:   "%{hiera('netcfg_gateway_mgmt')}"
+    ipaddress: "%{hiera('netcfg_mgmt_netpart')}.100"
+    netmask:   "%{hiera('netcfg_mgmt_netmask')}"
+    gateway:   "%{hiera('netcfg_mgmt_gateway')}"
     type:      'Bridge'
   'br1':
     defroute:  'no'
     onboot:    'yes'
-    ipaddress: "%{hiera('netcfg_netpart_trp')}.100"
-    netmask:   "%{hiera('netcfg_netmask_trp')}"
+    ipaddress: "%{hiera('netcfg_trp_netpart')}.100"
+    netmask:   "%{hiera('netcfg_trp_netmask')}"
     type:      'Bridge'
   'br2':
+    defroute:  'no'
+    onboot:    'yes'
+    bootproto: 'none'
+    type:      'Bridge'
+  'br3':
     defroute:  'no'
     onboot:    'yes'
     bootproto: 'none'
@@ -36,3 +44,91 @@ network::interfaces_hash:
 
 # Use controller-01 for himlar bootstrap
 profile::bootstrap::himlar::manage_bootstrap_scripts: true
+
+lvm::volume_groups:
+  vg_ext:
+    physical_volumes:
+      - /dev/sde3
+    logical_volumes:
+      lv_ext:
+        fs_type:   xfs
+        mountpath: "/var/lib/libvirt/images"
+  vg_ext_evo:
+    physical_volumes:
+      - /dev/sdf
+    logical_volumes:
+      lv_ext_evo:
+        fs_type:   xfs
+        mountpath: "/var/lib/libvirt/images_evo"
+  vg_ext_ocz:
+    physical_volumes:
+      - /dev/sdg
+    logical_volumes:
+      lv_ext_ocz:
+        fs_type:   xfs
+        mountpath: "/var/lib/libvirt/images_ocz"
+  vg_ext_sata1:
+    physical_volumes:
+      - /dev/sda
+    logical_volumes:
+      lv_ext_sata1:
+        fs_type:     xfs
+        mountpath:   "/var/lib/libvirt/images_sata1"
+  vg_ext_sata2:
+    physical_volumes:
+      - /dev/sdb
+    logical_volumes:
+      lv_ext_sata2:
+        fs_type:     xfs
+        mountpath:   "/var/lib/libvirt/images_sata2"
+  vg_ext_sata3:
+    physical_volumes:
+      - /dev/sdc
+    logical_volumes:
+      lv_ext_sata3:
+        fs_type:     xfs
+        mountpath:   "/var/lib/libvirt/images_sata3"
+  vg_ext_sata4:
+    physical_volumes:
+      - /dev/sdd
+    logical_volumes:
+      lv_ext_sata4:
+        fs_type:     xfs
+        mountpath:   "/var/lib/libvirt/images_sata4"
+
+profile::virtualization::libvirt::pools:
+  dirpool:
+    ensure:              present
+    autostart:           true
+    type:                dir
+    target:              /var/lib/libvirt/images
+  dirpoolevo:
+    ensure:              present
+    autostart:           true
+    type:                dir
+    target:              /var/lib/libvirt/images_evo
+  dirpoolocz:
+    ensure:              present
+    autostart:           true
+    type:                dir
+    target:              /var/lib/libvirt/images_ocz
+  dirpoolsata1:
+    ensure:              present
+    autostart:           true
+    type:                dir
+    target:              /var/lib/libvirt/images_sata1
+  dirpoolsata2:
+    ensure:              present
+    autostart:           true
+    type:                dir
+    target:              /var/lib/libvirt/images_sata2
+  dirpoolsata3: 
+    ensure:              present
+    autostart:           true
+    type:                dir
+    target:              /var/lib/libvirt/images_sata3
+  dirpoolsata4:
+    ensure:              present
+    autostart:           true
+    type:                dir
+    target:              /var/lib/libvirt/images_sata4

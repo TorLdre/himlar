@@ -1,0 +1,85 @@
+---
+network::interfaces_hash:
+  'em1':
+    onboot:        'yes'
+    devicetype:    'TeamPort'
+    team_master:   'team1'
+    team_port_config: '{ "prio" : 100 }'
+  'em2':
+    onboot:        'yes'
+    devicetype:    'TeamPort'
+    team_master:   'team1'
+    team_port_config: '{ "prio" : 100 }'
+  'em3':
+    onboot:        'yes'
+    ipaddress:     "%{hiera('netcfg_mgmt_netpart')}.124"
+    netmask:       "%{hiera('netcfg_mgmt_netmask')}"
+    gateway:       "%{hiera('netcfg_mgmt_gateway')}"
+    defroute:      'yes'
+    peerdns:       'yes'
+    dns1:          "%{hiera('netcfg_dns_server1')}"
+    domain:        "%{hiera('netcfg_dns_search')}"
+  'team1':
+    onboot:        'yes'
+    ipaddress:     "%{hiera('netcfg_trp_netpart')}.124"
+    netmask:       "%{hiera('netcfg_trp_netmask')}"
+    defroute:      'no'
+    devicetype:    'Team'
+    team_config: >-
+                   { "runner" : {  "name" : "lacp",  "active": true, "fast_rate" : true,
+                   "tx_hash": ["eth", "ipv4", "ipv6"], "tx_balancer": { "name": "basic" } },
+                   "link_watch" : {  "name" : "ethtool" } }
+  'team1.110':
+    onboot:       'yes'
+    ipaddress:     "%{hiera('netcfg_ceph_netpart')}.124"
+    netmask:       "%{hiera('netcfg_ceph_netmask')}"
+    vlan:         'yes'
+    defroute:     'no'
+
+# placeholder data
+profile::base::lvm::physical_volume:
+  '/dev/sda':
+    ensure: present
+    force:  true
+profile::base::lvm::volume_group:
+  'vg_cache':
+    physical_volumes:
+      - /dev/sda
+profile::base::lvm::logical_volume:
+  'lv_walf':
+    volume_group: 'vg_cache'
+    createfs:     false
+    size:         2G
+  'lv_dbf':
+    volume_group: 'vg_cache'
+    createfs:     false
+    size:         10G
+
+profile::storage::cephosd::osds:
+  '/dev/sda':
+    manage:     false
+  '/dev/sdb':
+    db_device:  false
+    wal_device: false
+  '/dev/sdc':
+    db_device:  false
+    wal_device: false
+  '/dev/sdd':
+    db_device:  false
+    wal_device: false
+  '/dev/sde':
+    db_device:  false
+    wal_device: false
+  '/dev/sdf':
+    db_device:  'vg_cache/lv_dbf'
+    wal_device: 'vg_cache/lv_walf'
+  '/dev/sdg':
+    manage:     false
+  '/dev/sdf':
+    manage:     false
+  '/dev/sdi':
+    manage:     false
+  '/dev/sdh':
+    manage:     false
+  '/dev/sdj':
+    manage:     false

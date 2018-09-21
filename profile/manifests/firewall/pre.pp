@@ -18,8 +18,11 @@
 class profile::firewall::pre(
   $established_settings = {},
   $icmp_settings        = {},
+  $ipv6_icmp_settings   = {},
   $loopback_settings    = {},
   $ssh_settings         = {},
+  $ipv6_ssh_settings    = {},
+  $manage_ipv6_ssh      = false,
   $manage_ssh           = true,
 ){
 
@@ -49,5 +52,34 @@ class profile::firewall::pre(
       dport  => '22',
       extras => $ssh_settings,
     }
+  }
+
+  if $manage_ipv6_ssh {
+    profile::firewall::rule{ '003 ipv6 accept ssh':
+      dport    => '22',
+      extras   => $ipv6_ssh_settings,
+      provider => 'ip6tables',
+    }
+  }
+
+  # defaults 'pre' rules
+  profile::firewall::rule{ '000 ipv6 accept related established rules':
+    proto    => 'all',
+    state    => ['RELATED', 'ESTABLISHED'],
+    extras   => $established_settings,
+    provider => 'ip6tables',
+  }
+
+  profile::firewall::rule{ '001 ipv6 accept all icmp':
+    proto    => 'ipv6-icmp',
+    extras   => $ipv6_icmp_settings,
+    provider => 'ip6tables',
+  }
+
+  profile::firewall::rule{ '002 ipv6 accept all to lo interface':
+    proto    => 'all',
+    iniface  => 'lo',
+    extras   => $loopback_settings,
+    provider => 'ip6tables',
   }
 }

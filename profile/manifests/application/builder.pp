@@ -3,7 +3,7 @@ class profile::application::builder (
   $template_dir,
   $download_dir,
   $az    = undef,
-  $package = 'imagebuilder',
+  $package_url = false,
   $user  = 'imagebuilder',
   $group = 'imagebuilder',
   $flavor = 'm1.small',
@@ -18,8 +18,12 @@ class profile::application::builder (
     $real_az = "${::location}-default-1"
   }
 
-  package { $package:
-    ensure => installed
+  if $package_url {
+    package { 'imagebuilder':
+      ensure   => installed,
+      provider => 'rpm',
+      source   => $package_url
+    }
   }
 
   file { '/opt/images':
@@ -63,5 +67,5 @@ class profile::application::builder (
     group  => $group
   }
 
-  create_resources('profile::application::builder::jobs', hiera_hash('profile::application::builder::images', {}))
+  create_resources('profile::application::builder::jobs', lookup('profile::application::builder::images', Hash, 'deep', {}))
 }
