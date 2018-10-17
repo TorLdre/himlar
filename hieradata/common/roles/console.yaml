@@ -4,6 +4,9 @@ include:
     - profile::openstack::compute::consoleproxy
     - profile::logging::rsyslog::client
 
+# FIXME move to common
+openstack_version: 'pike'
+
 profile::base::common::packages:
   'bash-completion': {}
   'bash-completion-extras': {}
